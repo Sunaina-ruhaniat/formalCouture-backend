@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const Cart = require("../models/CartModel");
 const Wishlist = require("../models/WishlistModel");
+const Wallet = require("../models/WalletModel");
 
 const userSchema = new mongoose.Schema(
 	{
@@ -85,7 +86,7 @@ userSchema.pre("save", async function (next) {
 
 	try {
 		const newWishlist = await Wishlist.create({ user: this._id, products: [] });
-		this.cart = newWishlist._id;
+		this.wishlist = newWishlist._id;
 		next();
 	} catch (error) {
 		return next(error);
