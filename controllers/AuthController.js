@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
 
 		return res
 			.status(200)
-			.json({ message: "Registered successfully", user: user });
+			.json({ message: "Registered successfully", user: user, token: token });
 	} catch (error) {
 		console.log(error);
 		return res
@@ -60,7 +60,7 @@ exports.login = async (req, res) => {
 		await CartController.mergeCart(req, res, user);
 		await WishlistController.mergeWishlist(req, res, user);
 
-		return res.status(200).json({ message: "Login Successful", user });
+		return res.status(200).json({ message: "Login Successful", user, token });
 	} catch (error) {
 		console.log(error);
 		return res
