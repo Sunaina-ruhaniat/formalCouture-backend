@@ -29,5 +29,5 @@ router.post(
 
 // Razorpay webhook to verify payment and create order
 router.post("/razorpay/webhook", OrderController.razorpayWebhookHandler);
-
+router.get("/payment-callback", OrderController.paymentCallback);
 module.exports = router;

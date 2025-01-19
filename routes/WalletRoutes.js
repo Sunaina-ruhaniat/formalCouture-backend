@@ -13,5 +13,11 @@ router.post(
 	adminMiddleware,
 	WalletController.addExchange
 );
+router.post(
+	"/unlock-wallet",
+	authMiddleware,
+	adminMiddleware,
+	WalletController.unlockWallet
+);
 
 module.exports = router;

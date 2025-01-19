@@ -63,3 +63,39 @@ exports.updateWalletBalance = async (walletId, balanceField, amount, user) => {
 	await wallet.save();
 	return wallet;
 };
+
+exports.unlockWallet = async (req, res) => {
+	try {
+		// Get userId from request body
+		const { username } = req.body;
+
+		const user = await User.findOne({ username: username });
+		// Validate that userId is provided
+		if (!user) {
+			return res.status(400).json({ error: "user not found" });
+		}
+		// Find the wallet associated with the user
+		const wallet = await Wallet.findOne({ user: user._id });
+		if (!wallet) {
+			return res
+				.status(404)
+				.json({ error: "Wallet not found for the provided userId." });
+		}
+
+		// Check if the wallet is already unlocked
+		if (!wallet.lock) {
+			return res.status(200).json({ message: "Wallet is already unlocked." });
+		}
+
+		// Unlock the wallet
+		wallet.lock = false;
+		await wallet.save();
+
+		return res.status(200).json({ message: "Wallet unlocked successfully." });
+	} catch (error) {
+		console.error("Error unlocking wallet:", error.message);
+		res
+			.status(500)
+			.json({ message: "An error occurred while unlocking the wallet." });
+	}
+};

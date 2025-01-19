@@ -80,6 +80,7 @@ const orderSchema = new mongoose.Schema(
 			enum: ["Processing", "Shipped", "Delivered", "Cancelled", "Returned"],
 			default: "Processing",
 		},
+		gift: { type: Boolean, default: false },
 	},
 	{ timestamps: true }
 );

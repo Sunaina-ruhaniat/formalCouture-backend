@@ -81,7 +81,7 @@ exports.getOrderById = async (req, res) => {
 exports.createRazorpayOrderAndRedirect = async (req, res) => {
 	try {
 		const userId = req.user._id;
-		const { shippingAddress, billingAddress, useReferral, useExchange } =
+		const { shippingAddress, billingAddress, useReferral, useExchange, gift } =
 			req.body;
 
 		// Fetch the cart
@@ -89,7 +89,7 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			"products.product"
 		);
 		if (!cart || cart.products.length === 0) {
-			return res.status(400).json({ error: "Cart is empty." });
+			return res.status(400).json({ message: "Cart is empty." });
 		}
 
 		// Check product stock
@@ -98,22 +98,34 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			if (!product || product.stock < item.quantity) {
 				return res
 					.status(400)
-					.json({ error: `Product ${product.name} is out of stock.` });
+					.json({ message: `Product ${product.name} is out of stock.` });
 			}
 		}
 
 		// Fetch wallet details
 		const wallet = await Wallet.findOne({ user: userId });
 		if (!wallet) {
-			return res.status(400).json({ error: "Wallet not found for user." });
+			return res.status(400).json({ message: "Wallet not found for user." });
 		}
 
+		// Ensure wallet is not locked
+		if (wallet.lock) {
+			return res.status(400).json({
+				message:
+					"Wallet is locked. Please wait for the previous payment to complete.",
+			});
+		}
+
+		// Lock the wallet
+		wallet.lock = true;
+		await wallet.save();
 		// Calculate total amount
 		let totalAmount = 0;
 		cart.products.forEach((item) => {
 			totalAmount += item.price;
 		});
-
+		giftAmount = parseInt(process.env.GIFT_AMOUNT, 10);
+		totalAmount += gift ? giftAmount : 0;
 		let referralDiscount = 0;
 		let exchangeDiscount = 0;
 
@@ -121,7 +133,10 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 		if (useExchange) {
 			exchangeDiscount = Math.min(wallet.exchangeBalance, totalAmount);
 		} else if (useReferral) {
-			referralDiscount = Math.min(wallet.referralBalance, totalAmount * 0.05);
+			referralDiscount = Math.min(
+				wallet.referralBalance,
+				totalAmount * parseFloat(process.env.REFERRAL_PERCENTAGE_LIMIT)
+			);
 		}
 
 		const finalAmount = totalAmount - referralDiscount - exchangeDiscount;
@@ -137,6 +152,7 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			shippingAddress,
 			billingAddress,
 			paymentStatus: "Pending", // Order status is initially Pending
+			gift: gift ? gift : false,
 		});
 
 		// Initialize Razorpay
@@ -177,6 +193,7 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			paymentLink: paymentLink.short_url,
 			orderId: order._id, // Include the order ID in the summary
 			userId,
+			gift: gift ? gift : false,
 		};
 		// Respond with the payment link URL
 		res.status(200).json({
@@ -187,6 +204,27 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 	} catch (error) {
 		res.status(500).json({ message: error.message });
 	}
+};
+
+exports.paymentCallback = async (req, res) => {
+	const { razorpay_payment_id, razorpay_order_id, razorpay_signature } =
+		req.body;
+	console.log(req.body);
+	if (razorpay_payment_id && razorpay_signature) {
+		// Verify the signature for success
+		const generatedSignature = crypto
+			.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+			.update(`${razorpay_order_id}|${razorpay_payment_id}`)
+			.digest("hex");
+
+		if (generatedSignature === razorpay_signature) {
+			// Payment successful
+			return res.redirect(process.env.PAYMENT_REDIRECT_SUCCESS_URL);
+		}
+	}
+
+	// Payment failed
+	return res.redirect(process.env.PAYMENT_REDIRECT_FAILURE_URL);
 };
 
 exports.razorpayWebhookHandler = async (req, res) => {
@@ -206,55 +244,56 @@ exports.razorpayWebhookHandler = async (req, res) => {
 
 		const payload = req.body;
 		console.log(payload);
+		// Process payment events
+		const eventType = payload.event;
+		const payment = payload.payload.payment.entity;
+		const { id: paymentId, notes, status } = payment;
+
+		// Extract userId and orderId from notes
+		const userId = notes.userId;
+		const orderId = notes.orderId;
+
+		// Fetch wallet and order
+		const wallet = await Wallet.findOne({ user: userId });
+		if (!wallet) {
+			return res.status(400).json({ message: "Wallet not found for user." });
+		}
+
+		const order = await Order.findById(orderId);
+		if (!order) {
+			return res.status(400).json({ message: "Order not found." });
+		}
 
 		// Only process successful payments
-		if (payload.event === "payment.captured") {
-			const payment = payload.payload.payment.entity;
-
-			// Extract necessary details from the payment payload
-			const { id: paymentId, notes, amount, status } = payment;
-
+		if (eventType === "payment.captured") {
 			// Ensure payment is captured
 			if (status !== "captured") {
 				return res.status(400).json({ message: "Payment not captured." });
 			}
-
-			// Extract notes metadata
-			const userId = notes.userId;
-			const orderId = notes.orderId;
 			// const shippingAddress = JSON.parse(notes.shippingAddress);
 			// const billingAddress = JSON.parse(notes.billingAddress);
 			const referralDiscount = Number(notes.referralDiscount || 0);
 			const exchangeDiscount = Number(notes.exchangeDiscount || 0);
 			// const products = JSON.parse(notes.products);
-
-			// Fetch the corresponding order in the database
-			const order = await Order.findById(orderId);
-			const products = order.products;
-			if (!order) {
-				return res.status(400).json({ message: "Order not found." });
-			}
-
-			// Ensure sufficient wallet balance
-			const wallet = await Wallet.findOne({ user: userId });
-			if (!wallet) {
-				return res.status(400).json({ message: "Wallet not found for user." });
-			}
-
 			if (wallet.referralBalance < referralDiscount) {
 				return res
 					.status(400)
-					.json({ message: "Insufficient referral balance." });
+					.json({ error: "Insufficient referral balance." });
 			}
 
 			if (wallet.exchangeBalance < exchangeDiscount) {
 				return res
 					.status(400)
-					.json({ message: "Insufficient exchange balance." });
+					.json({ error: "Insufficient exchange balance." });
 			}
+			wallet.referralBalance -= referralDiscount;
+			wallet.exchangeBalance -= exchangeDiscount;
+			wallet.referralBalance = Math.max(wallet.referralBalance, 0);
+			wallet.exchangeBalance = Math.max(wallet.exchangeBalance, 0);
+			await wallet.save();
 
 			// Deduct stock from products
-			for (const item of products) {
+			for (const item of order.products) {
 				const product = await Product.findById(item.product._id);
 				if (!product || product.stock < item.quantity) {
 					throw new Error(`Product ${product.name} is out of stock.`);
@@ -263,24 +302,27 @@ exports.razorpayWebhookHandler = async (req, res) => {
 				await product.save();
 			}
 
-			// Deduct wallet balances
-			wallet.referralBalance -= referralDiscount;
-			wallet.exchangeBalance -= exchangeDiscount;
-			wallet.referralBalance = Math.max(wallet.referralBalance, 0);
-			wallet.exchangeBalance = Math.max(wallet.exchangeBalance, 0);
-			await wallet.save();
-
 			// Update the order status
 			order.paymentStatus = "Completed";
 			order.paymentDetails = {
 				paymentId,
 			};
 			await order.save();
+			console.log("Payment captured successfully.");
+		} else if (eventType === "payment.failed") {
+			// Handle failed payment
+			order.paymentStatus = "Failed";
+			await order.save();
 
-			return res.status(200).json({ success: true, order });
+			console.log("Payment failed, order updated.");
 		} else {
 			return res.status(400).json({ message: "Unhandled webhook event type." });
 		}
+
+		// Unlock wallet in all cases
+		wallet.lock = false;
+		await wallet.save();
+		return res.status(200).json({ success: true });
 	} catch (error) {
 		console.error("Webhook Error:", error.message);
 		res.status(500).json({ message: error.message });
