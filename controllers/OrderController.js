@@ -108,23 +108,23 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			return res.status(400).json({ message: "Wallet not found for user." });
 		}
 
-		// Ensure wallet is not locked
-		if (wallet.lock) {
-			return res.status(400).json({
-				message:
-					"Wallet is locked. Please wait for the previous payment to complete.",
-			});
-		}
+		// // Ensure wallet is not locked
+		// if (wallet.lock) {
+		// 	return res.status(400).json({
+		// 		message:
+		// 			"Wallet is locked. Please wait for the previous payment to complete.",
+		// 	});
+		// }
 
-		// Lock the wallet
-		wallet.lock = true;
-		await wallet.save();
+		// // Lock the wallet
+		// wallet.lock = true;
+		// await wallet.save();
 		// Calculate total amount
 		let totalAmount = 0;
 		cart.products.forEach((item) => {
 			totalAmount += item.price;
 		});
-		giftAmount = parseInt(process.env.GIFT_AMOUNT, 10);
+		let giftAmount = parseInt(process.env.GIFT_AMOUNT, 10);
 		totalAmount += gift ? giftAmount : 0;
 		let referralDiscount = 0;
 		let exchangeDiscount = 0;
@@ -152,7 +152,7 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			shippingAddress,
 			billingAddress,
 			paymentStatus: "Pending", // Order status is initially Pending
-			gift: gift ? gift : false,
+			gift: gift || false,
 		});
 
 		// Initialize Razorpay
@@ -193,7 +193,7 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			paymentLink: paymentLink.short_url,
 			orderId: order._id, // Include the order ID in the summary
 			userId,
-			gift: gift ? gift : false,
+			gift: gift || false,
 		};
 		// Respond with the payment link URL
 		res.status(200).json({
@@ -270,11 +270,9 @@ exports.razorpayWebhookHandler = async (req, res) => {
 			if (status !== "captured") {
 				return res.status(400).json({ message: "Payment not captured." });
 			}
-			// const shippingAddress = JSON.parse(notes.shippingAddress);
-			// const billingAddress = JSON.parse(notes.billingAddress);
 			const referralDiscount = Number(notes.referralDiscount || 0);
 			const exchangeDiscount = Number(notes.exchangeDiscount || 0);
-			// const products = JSON.parse(notes.products);
+
 			if (wallet.referralBalance < referralDiscount) {
 				return res
 					.status(400)
@@ -320,8 +318,8 @@ exports.razorpayWebhookHandler = async (req, res) => {
 		}
 
 		// Unlock wallet in all cases
-		wallet.lock = false;
-		await wallet.save();
+		// wallet.lock = false;
+		// await wallet.save();
 		return res.status(200).json({ success: true });
 	} catch (error) {
 		console.error("Webhook Error:", error.message);
