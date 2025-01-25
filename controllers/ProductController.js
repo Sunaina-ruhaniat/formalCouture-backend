@@ -30,9 +30,9 @@ exports.createProduct = async (req, res) => {
 		}
 
 		// Convert comma-separated strings to arrays
-		// const sizesArray = sizes ? sizes.split(',').map((s) => s.trim()) : [];
-		// const colorsArray = colors ? colors.split(',').map((c) => c.trim()) : [];
-		// const fitsArray = fits ? fits.split(',').map((f) => f.trim()) : [];
+		const sizesArray = sizes ? sizes.split(",").map((s) => s.trim()) : [];
+		const colorsArray = colors ? colors.split(",").map((c) => c.trim()) : [];
+		const fitsArray = fits ? fits.split(",").map((f) => f.trim()) : [];
 
 		const product = await Product.create({
 			productCode,
@@ -42,12 +42,12 @@ exports.createProduct = async (req, res) => {
 			category,
 			brand,
 			stock,
-			sizes: JSON.parse(sizes || "[]"), // Convert sizes string to array
-			colors: JSON.parse(colors || "[]"), // Convert colors string to array
-			fits: JSON.parse(fits || "[]"), // Convert sizes string to array
-			// sizes: sizesArray,
-			// colors: colorsArray,
-			// fits: fitsArray,
+			// sizes: JSON.parse(sizes || "[]"), // Convert sizes string to array
+			// colors: JSON.parse(colors || "[]"), // Convert colors string to array
+			// fits: JSON.parse(fits || "[]"), // Convert sizes string to array
+			sizes: sizesArray,
+			colors: colorsArray,
+			fits: fitsArray,
 			images: imageUrls,
 		});
 
@@ -148,8 +148,14 @@ exports.updateProduct = async (req, res) => {
 		let imageUrls = product.images;
 
 		// Remove specified images
+		// if (removeImages) {
+		// 	const imagesToRemove = JSON.parse(removeImages || "[]");
+		// 	imageUrls = imageUrls.filter((url) => !imagesToRemove.includes(url));
+		// }
 		if (removeImages) {
-			const imagesToRemove = JSON.parse(removeImages || "[]");
+			const imagesToRemove = removeImages
+				? removeImages.split(",").map((i) => i.trim())
+				: [];
 			imageUrls = imageUrls.filter((url) => !imagesToRemove.includes(url));
 		}
 
@@ -161,15 +167,15 @@ exports.updateProduct = async (req, res) => {
 			}
 		}
 		// Convert comma-separated strings to arrays
-		// const sizesArray = sizes
-		// 	? sizes.split(",").map((s) => s.trim())
-		// 	: product.sizes;
-		// const colorsArray = colors
-		// 	? colors.split(",").map((c) => c.trim())
-		// 	: product.colors;
-		// const fitsArray = fits
-		// 	? fits.split(",").map((f) => f.trim())
-		// 	: product.fits;
+		const sizesArray = sizes
+			? sizes.split(",").map((s) => s.trim())
+			: product.sizes;
+		const colorsArray = colors
+			? colors.split(",").map((c) => c.trim())
+			: product.colors;
+		const fitsArray = fits
+			? fits.split(",").map((f) => f.trim())
+			: product.fits;
 
 		product.name = name || product.name;
 		product.description = description || product.description;
@@ -177,12 +183,12 @@ exports.updateProduct = async (req, res) => {
 		product.category = category || product.category;
 		product.brand = brand || product.brand;
 		product.stock = stock || product.stock;
-		product.sizes = JSON.parse(sizes || "[]") || product.sizes;
-		product.colors = JSON.parse(colors || "[]") || product.colors;
-		product.fits = JSON.parse(fits || "[]") || product.fits;
-		// product.sizes = sizesArray;
-		// product.colors = colorsArray;
-		// product.fits = fitsArray;
+		// product.sizes = JSON.parse(sizes || "[]") || product.sizes;
+		// product.colors = JSON.parse(colors || "[]") || product.colors;
+		// product.fits = JSON.parse(fits || "[]") || product.fits;
+		product.sizes = sizesArray;
+		product.colors = colorsArray;
+		product.fits = fitsArray;
 		product.images = imageUrls;
 
 		await product.save();

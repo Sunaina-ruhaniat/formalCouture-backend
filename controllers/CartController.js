@@ -31,7 +31,9 @@ const getCart = async (req, res) => {
 
 const addToCart = async (req, res) => {
 	try {
-		const { productId, quantity, variant } = req.body;
+		const { productId, variant } = req.body;
+		let { quantity } = req.body;
+		quantity = parseInt(quantity);
 
 		// Get the product data (including price and variants) from the database
 		const product = await Product.findById(productId);
@@ -54,7 +56,7 @@ const addToCart = async (req, res) => {
 		}
 
 		const price = product.price;
-		let totalPrice;
+		let totalPrice = 0;
 
 		if (req.user) {
 			// For logged-in users, update the user's cart
@@ -128,7 +130,9 @@ const addToCart = async (req, res) => {
 
 const decreaseFromCart = async (req, res) => {
 	try {
-		const { productId, quantity = 1, variant } = req.body;
+		const { productId, variant } = req.body;
+		let { quantity = 1 } = req.body;
+		quantity = parseInt(quantity);
 
 		// Get the product data (including price and variants) from the database
 		const product = await Product.findById(productId);
@@ -151,7 +155,7 @@ const decreaseFromCart = async (req, res) => {
 		}
 
 		const price = product.price;
-		let totalPrice;
+		let totalPrice = 0;
 
 		if (req.user) {
 			// For logged-in users, update the user's cart
