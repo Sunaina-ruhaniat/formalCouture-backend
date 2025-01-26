@@ -30,6 +30,9 @@ exports.createProduct = async (req, res) => {
 		}
 
 		// Convert comma-separated strings to arrays
+		const categoryArray = category
+			? category.split(",").map((s) => s.trim())
+			: [];
 		const sizesArray = sizes ? sizes.split(",").map((s) => s.trim()) : [];
 		const colorsArray = colors ? colors.split(",").map((c) => c.trim()) : [];
 		const fitsArray = fits ? fits.split(",").map((f) => f.trim()) : [];
@@ -39,7 +42,7 @@ exports.createProduct = async (req, res) => {
 			name,
 			description,
 			price,
-			category,
+			category: categoryArray,
 			brand,
 			stock,
 			// sizes: JSON.parse(sizes || "[]"), // Convert sizes string to array
@@ -73,10 +76,11 @@ exports.getProducts = async (req, res) => {
 		} = req.query;
 
 		const filters = {};
-		if (category) filters.category = category;
+		// if (category) filters.category = category;
 		if (brand) filters.brand = brand;
 
 		// Check for array filters and use the $in operator to match any element in the array
+		if (category) filters.category = { $in: [category] }; // Match if color is in the colors array
 		if (color) filters.colors = { $in: [color] }; // Match if color is in the colors array
 		if (fit) filters.fits = { $in: [fit] }; // Match if fit is in the fits array
 		if (size) filters.sizes = { $in: [size] }; // Match if size is in the sizes array
@@ -167,6 +171,9 @@ exports.updateProduct = async (req, res) => {
 			}
 		}
 		// Convert comma-separated strings to arrays
+		const categoryArray = category
+			? category.split(",").map((s) => s.trim())
+			: product.category;
 		const sizesArray = sizes
 			? sizes.split(",").map((s) => s.trim())
 			: product.sizes;
@@ -180,7 +187,7 @@ exports.updateProduct = async (req, res) => {
 		product.name = name || product.name;
 		product.description = description || product.description;
 		product.price = price || product.price;
-		product.category = category || product.category;
+		// product.category = category || product.category;
 		product.brand = brand || product.brand;
 		product.stock = stock || product.stock;
 		// product.sizes = JSON.parse(sizes || "[]") || product.sizes;
@@ -189,6 +196,7 @@ exports.updateProduct = async (req, res) => {
 		product.sizes = sizesArray;
 		product.colors = colorsArray;
 		product.fits = fitsArray;
+		product.category = categoryArray;
 		product.images = imageUrls;
 
 		await product.save();

@@ -29,17 +29,19 @@ const productSchema = new mongoose.Schema(
 				type: String,
 			},
 		],
-		category: {
-			type: String,
-			trim: true,
-			default: "normal",
-			enum: [
-				"normal",
-				"limited-edition",
-				"evergreen-classic",
-				"most-loved-style",
-			],
-		},
+		category: [
+			{
+				type: String,
+				trim: true,
+				default: "normal",
+				enum: [
+					"normal",
+					"limited-edition",
+					"evergreen-classic",
+					"most-loved-style",
+				],
+			},
+		],
 		brand: {
 			type: String,
 			trim: true,
