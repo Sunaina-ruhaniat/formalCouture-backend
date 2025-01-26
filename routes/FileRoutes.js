@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-// const { gfs } = require("../middleware/gridfsStorage");
+// const { gfs } = require("../middleware/GridfsStorageMiddleware");
 const mongoose = require("mongoose");
 
 const conn = mongoose.connection;

@@ -38,7 +38,7 @@ exports.generateReferral = async (req, res) => {
 		}
 
 		res.status(201).json({
-			link: `/referral/redeem-referral/${linkId}`,
+			link: `/api/referral/redeem-referral/${linkId}`,
 			referral: referral,
 		});
 	} catch (error) {

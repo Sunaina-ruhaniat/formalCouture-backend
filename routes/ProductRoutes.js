@@ -4,8 +4,8 @@ const ProductController = require("../controllers/ProductController");
 const {
 	authMiddleware,
 	adminMiddleware,
-} = require("../middleware/authMiddleware");
-const { uploadMiddleware } = require("../middleware/gridfsStorage");
+} = require("../middleware/AuthMiddleware");
+const { uploadMiddleware } = require("../middleware/GridfsStorageMiddleware");
 
 router.post(
 	"/create-product",

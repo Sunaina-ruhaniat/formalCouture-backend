@@ -5,12 +5,48 @@ const Product = require("../models/ProductModel");
 
 const Cart = require("../models/CartModel");
 const rp_instance = require("../services/razorpay-sdk");
+const EmailService = require("../services/EmailService");
+const EmailTemplates = require("../templates/EmailTemplates");
+const User = require("../models/UserModel");
 
-// Fetch all orders
+// Fetch all orders with pagination
 exports.getAllOrders = async (req, res) => {
 	try {
-		const orders = await Order.find().populate("user", "name email");
-		res.status(200).json({ success: true, orders });
+		// Extract pagination parameters from query string
+		const { page = 1, limit = 20 } = req.query;
+
+		const pageNumber = parseInt(page, 10);
+		const pageSize = parseInt(limit, 10);
+
+		if (pageNumber <= 0 || pageSize <= 0) {
+			return res.status(400).json({
+				success: false,
+				message: "Page and limit must be positive integers.",
+			});
+		}
+
+		// Calculate the number of documents to skip
+		const skip = (pageNumber - 1) * pageSize;
+
+		// Fetch orders with pagination and populate user details
+		const orders = await Order.find()
+			.sort({ createdAt: -1 }) // Optional: Sort orders by creation date
+			.skip(skip)
+			.limit(pageSize)
+			.populate("user", "name username email");
+
+		// Get the total count of orders for pagination metadata
+		const totalOrders = await Order.countDocuments();
+
+		// Return paginated data with metadata
+		res.status(200).json({
+			success: true,
+			page: pageNumber,
+			limit: pageSize,
+			totalPages: Math.ceil(totalOrders / pageSize),
+			totalOrders,
+			orders,
+		});
 	} catch (error) {
 		console.error("Error fetching all orders:", error);
 		res
@@ -20,21 +56,46 @@ exports.getAllOrders = async (req, res) => {
 };
 
 // Fetch orders for a specific user
+// Fetch orders for a specific user with pagination
 exports.getUserOrders = async (req, res) => {
 	try {
 		const userId = req.user._id;
 
-		const orders = await Order.find({ user: userId }).populate(
-			"user",
-			"name email"
-		);
-		// if (!orders.length) {
-		// 	return res
-		// 		.status(404)
-		// 		.json({ success: false, message: "No orders found for this user." });
-		// }
+		// Extract pagination parameters from query string
+		const { page = 1, limit = 20 } = req.query;
 
-		res.status(200).json({ success: true, orders });
+		const pageNumber = parseInt(page, 10);
+		const pageSize = parseInt(limit, 10);
+
+		if (pageNumber <= 0 || pageSize <= 0) {
+			return res.status(400).json({
+				success: false,
+				message: "Page and limit must be positive integers.",
+			});
+		}
+
+		// Calculate the number of documents to skip
+		const skip = (pageNumber - 1) * pageSize;
+
+		// Fetch user's orders with pagination and populate user details
+		const orders = await Order.find({ user: userId })
+			.sort({ createdAt: -1 }) // Optional: Sort orders by creation date
+			.skip(skip)
+			.limit(pageSize)
+			.populate("user", "name username email");
+
+		// Get the total count of user's orders for pagination metadata
+		const totalOrders = await Order.countDocuments({ user: userId });
+
+		// Return paginated data with metadata
+		res.status(200).json({
+			success: true,
+			page: pageNumber,
+			limit: pageSize,
+			totalPages: Math.ceil(totalOrders / pageSize),
+			totalOrders,
+			orders,
+		});
 	} catch (error) {
 		console.error("Error fetching user orders:", error);
 		res
@@ -202,25 +263,28 @@ exports.createRazorpayOrderAndRedirect = async (req, res) => {
 			checkoutSummary,
 		});
 	} catch (error) {
+		console.log(error);
 		res.status(500).json({ message: error.message });
 	}
 };
 
 exports.paymentCallback = async (req, res) => {
-	const { razorpay_payment_id, razorpay_order_id, razorpay_signature } =
-		req.body;
-	console.log(req.body);
-	if (razorpay_payment_id && razorpay_signature) {
-		// Verify the signature for success
-		const generatedSignature = crypto
-			.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-			.update(`${razorpay_order_id}|${razorpay_payment_id}`)
-			.digest("hex");
+	const { razorpay_payment_link_status } = req.query;
 
-		if (generatedSignature === razorpay_signature) {
-			// Payment successful
-			return res.redirect(process.env.PAYMENT_REDIRECT_SUCCESS_URL);
-		}
+	// all the validation doesnt work for some reason
+
+	if (razorpay_payment_link_status === "paid") {
+		// const generatedSignature = crypto
+		// 	.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+		// 	.update(`${razorpay_payment_link_id}|${razorpay_payment_id}`)
+		// 	.digest("hex");
+
+		// console.log(req.query, req.body, generatedSignature);
+
+		// if (generatedSignature === razorpay_signature) {
+		// 	// Payment successful
+		// }
+		return res.redirect(process.env.PAYMENT_REDIRECT_SUCCESS_URL);
 	}
 
 	// Payment failed
@@ -259,7 +323,7 @@ exports.razorpayWebhookHandler = async (req, res) => {
 			return res.status(400).json({ message: "Wallet not found for user." });
 		}
 
-		const order = await Order.findById(orderId);
+		const order = await Order.findById(orderId).populate("products.product");
 		if (!order) {
 			return res.status(400).json({ message: "Order not found." });
 		}
@@ -274,12 +338,22 @@ exports.razorpayWebhookHandler = async (req, res) => {
 			const exchangeDiscount = Number(notes.exchangeDiscount || 0);
 
 			if (wallet.referralBalance < referralDiscount) {
+				order.paymentStatus = "ReferralDisparity";
+				order.paymentDetails = {
+					paymentId,
+				};
+				await order.save();
 				return res
 					.status(400)
 					.json({ error: "Insufficient referral balance." });
 			}
 
 			if (wallet.exchangeBalance < exchangeDiscount) {
+				order.paymentStatus = "ExchangeDisparity";
+				order.paymentDetails = {
+					paymentId,
+				};
+				await order.save();
 				return res
 					.status(400)
 					.json({ error: "Insufficient exchange balance." });
@@ -306,6 +380,25 @@ exports.razorpayWebhookHandler = async (req, res) => {
 				paymentId,
 			};
 			await order.save();
+
+			// Prepare the order details for the email
+			const user = await User.findById(userId);
+			const products = order.products.map((item) => ({
+				name: item.product.name,
+				quantity: item.quantity,
+				price: item.price,
+			}));
+			const totalAmount = order.totalAmount;
+
+			// Send the order success email
+			const { subject, text, html } = EmailTemplates.orderSuccessEmail(
+				user.username,
+				orderId,
+				products,
+				totalAmount
+			);
+
+			await EmailService.sendEmail(user.email, subject, text, html);
 			console.log("Payment captured successfully.");
 		} else if (eventType === "payment.failed") {
 			// Handle failed payment

@@ -24,7 +24,6 @@ const FileRoutes = require("./routes/FileRoutes");
 const WalletRoutes = require("./routes/WalletRoutes");
 const ReferralRoutes = require("./routes/ReferralRoutes");
 const OrderRoutes = require("./routes/OrderRoutes");
-const { authMiddleware } = require("./middleware/authMiddleware");
 
 app.use(cookieParser());
 app.use(
@@ -34,7 +33,7 @@ app.use(
 			if (!origin || origin.startsWith("http://localhost")) {
 				callback(null, true); // Allow any localhost origin
 			} else {
-				callback(new Error("Not allowed by CORS"));
+				callback(null, false);
 			}
 		},
 		credentials: true, // This is important to allow cookies to be sent
@@ -75,14 +74,14 @@ app.use("/ping", (req, res) => {
 });
 
 app.use("/api/auth", AuthRoutes);
-app.use("/api/user", authMiddleware, UserRoutes);
+app.use("/api/user", UserRoutes);
 app.use("/api/product", ProductRoutes);
 app.use("/api/cart", CartRoutes);
 app.use("/api/wishlist", WishlistRoutes);
 app.use("/api/wallet", WalletRoutes);
 app.use("/api/order", OrderRoutes);
 app.use("/file", FileRoutes);
-app.use("/referral", ReferralRoutes);
+app.use("/api/referral", ReferralRoutes);
 
 // 404 For Rest
 app.all("*", (req, res, next) => {

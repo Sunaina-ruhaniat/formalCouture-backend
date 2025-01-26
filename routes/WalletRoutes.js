@@ -4,7 +4,7 @@ const WalletController = require("../controllers/WalletController");
 const {
 	authMiddleware,
 	adminMiddleware,
-} = require("../middleware/authMiddleware");
+} = require("../middleware/AuthMiddleware");
 
 router.get("/get-wallet", authMiddleware, WalletController.getWallet);
 router.post(

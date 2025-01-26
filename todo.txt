@@ -2,6 +2,6 @@
 referral amounts added to wallet
 referral percentage per order
 
-email invoice on payment
-email on forget password
-reset password
+
+category array
+reviews

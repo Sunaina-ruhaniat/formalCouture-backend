@@ -279,6 +279,37 @@ const removeFromCart = async (req, res) => {
 	}
 };
 
+const resetCart = async (req, res) => {
+	try {
+		if (req.user) {
+			// For logged-in users, remove the product from the cart
+			let cart = await Cart.findById(req.user.cart);
+
+			if (!cart) {
+				return res.status(400).json({ message: "Cart not found" });
+			}
+
+			cart.products = [];
+
+			await cart.save();
+			cart = await Cart.findById(req.user.cart).populate("products.product");
+			return res.status(200).json({ cart });
+		} else {
+			// For guest users, remove the product from the session cart
+			const cart = getSessionCart(req);
+
+			cart.products = [];
+
+			return res.status(200).json({ cart });
+		}
+	} catch (error) {
+		return res.status(500).json({
+			message: "Error removing product from cart",
+			error: error.message,
+		});
+	}
+};
+
 const mergeCart = async (req, res, user) => {
 	try {
 		const sessionCart = getSessionCart(req); // Get the session cart (guest cart)
@@ -344,5 +375,6 @@ module.exports = {
 	addToCart,
 	decreaseFromCart,
 	removeFromCart,
+	resetCart,
 	mergeCart,
 };
