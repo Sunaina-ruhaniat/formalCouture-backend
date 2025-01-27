@@ -1,6 +1,6 @@
 // Review Model (models/Review.js)
 const mongoose = require("mongoose");
-const Product = require("./ProductModel"); // Import the Product model
+// const Product = require("./ProductModel"); // Import the Product model
 
 const reviewSchema = new mongoose.Schema(
 	{
@@ -28,21 +28,21 @@ const reviewSchema = new mongoose.Schema(
 	{ timestamps: true }
 );
 
-// Middleware to update product rating after review save
-reviewSchema.post("save", async function () {
-	const product = await Product.findById(this.product);
-	if (product) {
-		await product.calculateAverageRating(); // Recalculate the average rating
-	}
-});
+// // Middleware to update product rating after review save
+// reviewSchema.post("save", async function () {
+// 	const product = await Product.findById(this.product);
+// 	if (product) {
+// 		await product.calculateAverageRating(); // Recalculate the average rating
+// 	}
+// });
 
-// Middleware to update product rating after review update
-reviewSchema.post("findOneAndUpdate", async function () {
-	const product = await Product.findById(this._update.product);
-	if (product) {
-		await product.calculateAverageRating(); // Recalculate the average rating
-	}
-});
+// // Middleware to update product rating after review update
+// reviewSchema.post("findOneAndUpdate", async function () {
+// 	const product = await Product.findById(this._update.product);
+// 	if (product) {
+// 		await product.calculateAverageRating(); // Recalculate the average rating
+// 	}
+// });
 
 const Review = mongoose.model("Review", reviewSchema);
 

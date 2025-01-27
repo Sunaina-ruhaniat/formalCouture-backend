@@ -9,6 +9,7 @@ const app = express();
 require("dotenv").config();
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const logger = require("./services/Logger");
 
 const store = new MongoStore({
 	mongoUrl: process.env.MONGODB_URI,
@@ -24,6 +25,7 @@ const FileRoutes = require("./routes/FileRoutes");
 const WalletRoutes = require("./routes/WalletRoutes");
 const ReferralRoutes = require("./routes/ReferralRoutes");
 const OrderRoutes = require("./routes/OrderRoutes");
+const ReviewRoutes = require("./routes/ReviewRoutes");
 
 app.use(cookieParser());
 app.use(
@@ -57,6 +59,25 @@ app.use(
 	})
 );
 
+// Log incoming API requests
+app.use((req, res, next) => {
+	const start = Date.now();
+	const { method, url } = req;
+	logger.info(`Incoming request: ${method} ${url}`, {
+		meta: { ip: req.ip },
+	});
+	res.on("finish", () => {
+		const duration = Date.now() - start;
+		logger.info(`HTTP Request: ${method} ${url}`, {
+			meta: {
+				statusCode: res.statusCode,
+				responseTime: `${duration}ms`,
+			},
+		});
+	});
+	next();
+});
+
 mongoose
 	.connect(process.env.MONGODB_URI, {
 		dbName: process.env.DB_NAME,
@@ -80,6 +101,7 @@ app.use("/api/cart", CartRoutes);
 app.use("/api/wishlist", WishlistRoutes);
 app.use("/api/wallet", WalletRoutes);
 app.use("/api/order", OrderRoutes);
+app.use("/api/review", ReviewRoutes);
 app.use("/file", FileRoutes);
 app.use("/api/referral", ReferralRoutes);
 
@@ -89,5 +111,6 @@ app.all("*", (req, res, next) => {
 });
 
 const listener = server.listen(process.env.PORT || 8000, () => {
-	console.log("Your app is listening on port " + listener.address().port);
+	logger.info(`Server listening on port ${listener.address().port}`);
+	// console.log("Your app is listening on port " + listener.address().port);
 });

@@ -3,5 +3,4 @@ referral amounts added to wallet
 referral percentage per order
 
 
-category array
-reviews
+logging http requests / errors
