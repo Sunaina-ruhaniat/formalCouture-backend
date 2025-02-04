@@ -9,6 +9,18 @@ const crypto = require("crypto");
 
 exports.register = async (req, res) => {
 	try {
+		const { email, username } = req.body;
+		// Check if user already exists
+		const existingUser = await User.findOne({
+			$or: [{ email }, { username }],
+		});
+
+		if (existingUser) {
+			return res.status(400).json({
+				message: "User with this email or username already exists.",
+			});
+		}
+
 		const data = req.body;
 		data.role = "customer";
 		const user = await User.create(data);
