@@ -8,6 +8,7 @@ const rp_instance = require("../services/razorpay-sdk");
 const EmailService = require("../services/EmailService");
 const EmailTemplates = require("../templates/EmailTemplates");
 const User = require("../models/UserModel");
+const { clearUserCart } = require("./CartController");
 
 // Fetch all orders with pagination
 exports.getAllOrders = async (req, res) => {
@@ -381,8 +382,11 @@ exports.razorpayWebhookHandler = async (req, res) => {
 			};
 			await order.save();
 
+			//Clear Cart
+
 			// Prepare the order details for the email
 			const user = await User.findById(userId);
+			clearUserCart(user.cart);
 			const products = order.products.map((item) => ({
 				name: item.product.name,
 				quantity: item.quantity,

@@ -283,15 +283,7 @@ const resetCart = async (req, res) => {
 	try {
 		if (req.user) {
 			// For logged-in users, remove the product from the cart
-			let cart = await Cart.findById(req.user.cart);
-
-			if (!cart) {
-				return res.status(400).json({ message: "Cart not found" });
-			}
-
-			cart.products = [];
-
-			await cart.save();
+			clearUserCart(req.user.cart);
 			cart = await Cart.findById(req.user.cart).populate("products.product");
 			return res.status(200).json({ cart });
 		} else {
@@ -370,6 +362,18 @@ const mergeCart = async (req, res, user) => {
 	}
 };
 
+const clearUserCart = async (cartId) => {
+	let cart = await Cart.findById(cartId);
+
+	if (!cart) {
+		return res.status(400).json({ message: "Cart not found" });
+	}
+
+	cart.products = [];
+
+	await cart.save();
+};
+
 module.exports = {
 	getCart,
 	addToCart,
@@ -377,4 +381,5 @@ module.exports = {
 	removeFromCart,
 	resetCart,
 	mergeCart,
+	clearUserCart,
 };
